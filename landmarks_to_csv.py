@@ -1,6 +1,7 @@
 import cv2, re, csv
 from matplotlib import pyplot as plt
 import numpy as np
+import argparse
 
 
 
@@ -36,7 +37,6 @@ def display_landmarks(img_landmarks, img_folder):
 	for i in range(len(img_landmarks)):
 		img_path = img_folder + '/' + img_landmarks[i][0]
 		img = cv2.imread(img_path)
-		print(img.shape)
 		plt.imshow(img)
 		plt.scatter(img_landmarks[i][2][:, 1], img_landmarks[i][2][:, 2])
 		plt.show()
@@ -61,13 +61,25 @@ def save_train_csv(img_landmarks, csv_dir):
 				temp.append(0)
 			writer.writerow(temp)
 
+def arg():
+	parser = argparse.ArgumentParser(description='save data directory')
+	parser.add_argument('--file_path', dest = 'file_path', type=str,
+                    default='/Users/evnw/Research/DeepFasion/attri_predict/Anno/list_landmarks.txt')
+	parser.add_argument('--img_folder', dest = 'img_folder', type=str,
+                    default='/Users/evnw/Research/DeepFasion/attri_predict')
+	parser.add_argument('--csv_dir', dest = 'csv_dir', type=str,
+                    default='/Users/evnw/Research/DeepFasion/attri_predict/landmarks_csv')
+	args = parser.parse_args()
+	return args
+
 
 
 if __name__ == '__main__':
-	file_path = '/Users/evnw/Research/DeepFasion/attri_predict/Anno/list_landmarks.txt'
+	args = arg()
+	file_path = args.file_path
 	file = open(file_path)
 	img_landmarks = read_landmarks(file)
-	img_folder = '/Users/evnw/Research/DeepFasion/attri_predict'
+	img_folder = args.img_folder
 	#display_landmarks(img_landmarks, img_folder)
-	csv_dir = '/Users/evnw/Research/DeepFasion/attri_predict/landmarks_csv'
+	csv_dir = args.csv_dir
 	save_train_csv(img_landmarks, csv_dir)
