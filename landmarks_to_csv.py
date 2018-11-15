@@ -54,10 +54,11 @@ def save_train_csv(img_landmarks, csv_dir):
 			temp = []
 			temp.append(row[0])
 			for landmark in row[2]:
+				temp.append(-landmark[0]+1)
 				temp.append(landmark[1])
 				temp.append(landmark[2])
 
-			while(len(temp) < 17):
+			while(len(temp) < 25):
 				temp.append(0)
 			writer.writerow(temp)
 
