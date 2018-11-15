@@ -297,3 +297,7 @@ if __name__ == '__main__':
     dataset = initialize(csv_file, img_dir, transforms.Compose([Rescale(256), RandomCrop(224), ToTensor()]))
     dataset_arr = initialize(csv_file, img_dir, transforms.Compose([Rescale(256), RandomCrop(224)]))
     show_sample(dataset_arr, 4)
+
+
+
+
