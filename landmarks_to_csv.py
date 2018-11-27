@@ -69,7 +69,7 @@ def arg():
 	parser.add_argument('--img_folder', dest = 'img_folder', type=str,
                     default='/Users/evnw/Research/DeepFasion/attri_predict')
 	parser.add_argument('--csv_dir', dest = 'csv_dir', type=str,
-                    default='/Users/evnw/Research/DeepFasion/attri_predict/landmarks_csv')
+                    default='/Users/evnw/Documents/Github/FashionNet-Pytorch/anno')
 	args = parser.parse_args()
 	return args
 
