@@ -285,7 +285,7 @@ if __name__ == '__main__':
 	trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
 											 shuffle=True, num_workers=4)
 
-	net = VGG16(num_classes = 16, init_weights = False)
+	net = VGG19(num_classes = 16, init_weights = False)
 	#net = net.float()
 	#summary(net, (3, 224, 224))
 

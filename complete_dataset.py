@@ -10,7 +10,7 @@ from torchvision import transforms, utils
 
 class training_toolset:
     def __init__(self, csv_dir = None, img_dir = None):
-        self.csv_file = csv_file
+        self.csv_dir = csv_dir
         self.img_dir = img_dir
 
     def initialize_dataset(self):
@@ -23,8 +23,8 @@ class training_toolset:
         else:
             img_dir = "/Users/evnw/Research/DeepFasion/attri_predict"
         dataset_tensor = initialize(csv_dir, img_dir, transforms.Compose([Rescale(256), CenterCrop(224), ToTensor()]))
-        dataset_arr = initialize(csv_dir, img_dir, transforms.Compose([Rescale(256), CenterCrop(224)]))
-        return dataset_tensor, dataset_arr
+        #dataset_arr = initialize(csv_dir, img_dir, transforms.Compose([Rescale(256), CenterCrop(224)]))
+        return dataset_tensor#, dataset_arr
 
     def show_random_sample(self, dataset_arr, num):
         show_sample(dataset_arr, num)
@@ -67,8 +67,10 @@ class clothes_dataset(Dataset):
 
         attr = self.attr_frame.iloc[idx, 1:]
         attr = attr.values
-        cat = self.cat_frame.iloc[idx, 1]
-        #print(cat, type(cat))
+        cat_num = self.cat_frame.iloc[idx, 1]
+        attr = attr.astype(np.uint8)
+        cat = np.zeros(50, dtype = np.uint8)
+        cat[cat_num-1] = 1
         sample = {'image': image,
                 'landmarks': landmarks,
                 'visibility': visibility,
@@ -80,8 +82,8 @@ class clothes_dataset(Dataset):
 
         return sample
 
-def initialize(csv_file, img_dir, transform):
-    dataset = clothes_dataset(csv_file, img_dir, transform)
+def initialize(csv_dir, img_dir, transform):
+    dataset = clothes_dataset(csv_dir, img_dir, transform)
     return dataset
 
 class Rescale(object):
@@ -188,7 +190,7 @@ class CenterCrop(object):
                 #print('out')
                 visibility[i] = 0
 
-        return {'image': img, 'landmarks': landmarks, 'visibility': visibility, 'attributes' : attr, 'category' : cat}
+        return {'image': image, 'landmarks': landmarks, 'visibility': visibility, 'attributes' : attr, 'category' : cat}
 
 
 class ToTensor(object):
@@ -225,7 +227,8 @@ def show_sample(dataset, num):
     for i in range(num):
 
         sample = dataset[index[i]]
-        #print(index[i])
+        print(index[i])
+        print(sample)
 
         #print(i, sample['image'].shape, sample['landmarks'].shape)
 
