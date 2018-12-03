@@ -27,8 +27,7 @@ import os, time
 
 from torchsummary import summary
 
-
-#torch.set_default_tensor_type('torch.DoubleTensor')
+torch.set_default_tensor_type('torch.DoubleTensor')
 
 def arg():
 	parser = argparse.ArgumentParser(description='save data directory')
@@ -121,6 +120,7 @@ class VGG19(nn.Module):
 				m.weight.data.normal_(0, 0.01)
 				m.bias.data.zero_()
 
+
 class VGG16(nn.Module):
 
 	def __init__(self, num_classes, init_weights):
@@ -176,9 +176,7 @@ class VGG16(nn.Module):
 
 	def forward(self, x):
 		x = self.features(x)
-		print(x.size())
 		x = x.view(x.size(0), -1)
-		print(x.size())
 		x = self.classifier(x)
 		return x
 
@@ -195,6 +193,7 @@ class VGG16(nn.Module):
 			elif isinstance(m, nn.Linear):
 				m.weight.data.normal_(0, 0.01)
 				m.bias.data.zero_()
+
 
 class fasNet(nn.Module):
 
@@ -325,6 +324,8 @@ class fasNet(nn.Module):
 		local_feature = self.get_local_feature_sm(local_feature)
 
 		local_feature = local_feature.view(local_feature.size(0), -1)
+		print('5', time.time() - tm)
+		tm = time.time()
 		#print("local_feature_view", local_feature.size())
 		local_feature_fc = self.local_map_fc_sm(local_feature)
 		#print("local_feature_fc", local_feature_fc.size())
@@ -438,117 +439,66 @@ class fasNet(nn.Module):
 				m.weight.data.normal_(0, 0.01)
 				m.bias.data.zero_()
 
+def imshow(img, landmark, category_attributes):
+    #img = img / 2 + 0.5     # unnormalize
+    #img = img 
+    cat_max = 0
+    cat_idx = 0
+    for i in range(50):
+    	if category_attributes[i] > cat_max:
+    		cat_max = category_attributes[i]
+    		cat_idx = i
+    print(cat_idx, cat_max)
+
+    for i in range(50, 1050):
+    	if category_attributes[i] > 0.7:
+    		print(i, category_attributes[i])
+
+    landmark = landmark.detach().numpy()
+    landmarks = []
+    for i in range(0, len(landmark), 2):
+    	landmarks.append([landmark[i], landmark[i+1]])
+    landmarks = np.array(landmarks)
+    landmarks = landmarks*100
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    for i in range(len(landmarks)):
+    	plt.scatter(landmarks[i][0], landmarks[i][1], s=10, marker='.', c='r')
+
 
 if __name__ == '__main__':
 	args = arg()
 	training_tool = training_toolset()
-	#dataset, dataset_arr = training_tool.initialize_dataset()
-	dataset = training_tool.initialize_dataset()
+	dataset, dataset_arr = training_tool.initialize_dataset()
 	#training_tool.show_random_sample(dataset_arr, 4)
 
-	batch_size = 2
+	batch_size = 1
 
-	trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-											 shuffle=True, num_workers=4)
+	testloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+											 shuffle=True, num_workers=batch_size)
 
-	net = fasNet(num_classes = 16, init_weights = False)
-	#net = VGG16(num_classes = 16, init_weights = False)
-	#net = net.float()
-	#summary(net, (3, 224, 224))
+	net = fasNet(num_classes = 16, init_weights = True)
+	net.load_state_dict(torch.load('vgg19_whole_1_100.pt'))
 
-	#criterion = nn.L1Loss()
-	regression_loss = nn.MSELoss()
-	#softmax_loss = nn.sof
-	BCE_loss = nn.BCELoss()
-	CE_loss = nn.CrossEntropyLoss()
-	optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.8)
-
-	count = 0
-	epochs = 1
-	times = 10000
-
-	for epoch in range(epochs):  # loop over the dataset multiple times
-		running_loss = 0.0
-		start_time = time.time()
-		for i, data in enumerate(trainloader):
-			#print('sample', time.time() - start_time)
-			start_time = time.time()
-			count+=1
-			print(count)
-
-			inputs, landmarks, visibility, attributes, category = data['image'], data['landmarks'], data['visibility'], data['attributes'], data['category']
-			inputs = inputs.float()
-			landmarks = landmarks.float()
-			visibility = visibility.float()
-			attributes = attributes.type(torch.FloatTensor)
-			category = category.type(torch.LongTensor)
-
-			#print('input',time.time() - start_time)
-			start_time = time.time()
-
-			optimizer.zero_grad()
-			landmarks_out, feature, category_attributes = net(inputs)
-			category_out = category_attributes[:, 0:50]
-			attributes_out = category_attributes[:, 50:]
-			#category_out = category_out.type(torch.LongTensor)
-			#attributes_out = attributes_out.type(torch.LongTensor)
-
-			print('forward',time.time() - start_time)
-			start_time = time.time()
-			'''
-			for i in range(batch_size):
-				for j in range(8):								# number of total landmarks
-					if visibility[i][j] == 0:
-						landmarks[i][j][0] = outputs[i][2*j]
-						landmarks[i][j][1] = outputs[i][2*j+1]
-			'''
-
-			labels = torch.rand(batch_size, 16, requires_grad = False)
-			for i in range(batch_size):
-				for j in range(8):
-					labels[i][2*j] = landmarks[i][j][0]
-					labels[i][2*j+1] = landmarks[i][j][1]
-			#print('label', time.time() - start_time)
-			start_time = time.time()
-
-			landmarks_loss = regression_loss(landmarks_out, labels)
-			category_loss = CE_loss(category_out, torch.max(category,1)[1])
-			attributes_loss = BCE_loss(attributes_out, attributes)
-
-			if count%2 == 0:
-				local_wght = 0.2
-				global_wght = 0.8
-			else:
-				local_wght = 0.8
-				global_wght = 0.2
-
-			loss = landmarks_loss*local_wght + (category_loss+attributes_loss)*global_wght
+	dataiter = iter(testloader)
+	sample = dataiter.next()
+	image, landmark, visibility = sample['image'], sample['landmarks'], sample['visibility']
+	landmarks_out, feature, category_attributes = net(inputs)
+	imshow(image[0], landmarks_out[0], category_attributes[0])
+	plt.show()
 
 
-			#print('loss',time.time() - start_time)
-			start_time = time.time()
 
-			loss.backward()
 
-			print('back',time.time() - start_time)
-			start_time = time.time()
 
-			optimizer.step()
 
-			#print('step',time.time() - start_time)
-			start_time = time.time()
 
-			running_loss += loss.item()
-			#print('running_loss')
-			if count % times == times-1:	# print every 2000 mini-batches
-				print('[%d, %d] loss: %.3f' %
-					  (epoch + 1, count + 1, running_loss / 200))
-				running_loss = 0.0
 
-			if count == times:
-				break
-		if count == times:
-			break
-		if count%100 == 0:
-			torch.save(net.state_dict(), 'fasNet_1_{}.pt'.format(count))
-			print('{}saved'.format(count))
+
+
+
+
+
+
+
+
