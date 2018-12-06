@@ -545,10 +545,11 @@ if __name__ == '__main__':
 					  (epoch + 1, count + 1, running_loss / 200))
 				running_loss = 0.0
 
+			if count%100 == 0:
+				torch.save(net.state_dict(), 'fasNet_1_{}.pt'.format(count))
+				print('{}saved'.format(count))
+
 			if count == times:
 				break
 		if count == times:
 			break
-		if count%100 == 0:
-			torch.save(net.state_dict(), 'fasNet_1_{}.pt'.format(count))
-			print('{}saved'.format(count))
