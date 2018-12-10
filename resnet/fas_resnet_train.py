@@ -7,7 +7,6 @@ import torch
 from skimage import io, transform
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-from complete_dataset import training_toolset
 import argparse
 
 import torch
@@ -139,7 +138,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-	def __init__(self, block, layers, num_classes=1000):
+	def __init__(self, block, layers, num_classes=2):
 		super(ResNet, self).__init__()
 		self.inplanes = 64
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
@@ -217,7 +216,7 @@ def resnet34(pretrained=False, **kwargs):
 	return model
 
 
-def resnet50(pretrained=False, **kwargs):
+def resnet50(pretrained=True, **kwargs):
 	"""Constructs a ResNet-50 model.
 	Args:
 		pretrained (bool): If True, returns a model pre-trained on ImageNet
@@ -256,119 +255,145 @@ def resnet152(pretrained=False, **kwargs):
 
 
 if __name__ == '__main__':
-	net = resnet50(pretrained = True, num_classes = 10)
 
-	raise Exception('halt')
+	data_transforms = transforms.Compose(
+	[transforms.Resize(256),
+	 transforms.CenterCrop(227),
+	 transforms.ToTensor(),
+	 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+
+	train_data_dir = '/home/zw119/floordog/dataset_resnet/train/men'
+	train_dataset = datasets.ImageFolder(train_data_dir,
+											  data_transforms)
+
+	trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=4,
+												 shuffle=True, num_workers=4)
+
+	dataset_sizes = len(train_dataset)
+
+	classes = train_dataset.classes
+	print(classes)
+
+	net = resnet50(pretrained = True, num_classes = len(classes))
+
+	#raise Exception('halt')
 	args = arg()
-	training_tool = training_toolset()
-	#dataset, dataset_arr = training_tool.initialize_dataset()
-	dataset = training_tool.initialize_dataset()
-	#training_tool.show_random_sample(dataset_arr, 4)
 
-	batch_size = 2
+	batch_size = 4
 
-	trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-											 shuffle=True, num_workers=4)
+	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	net.to(device)
 
-	net = fasNet(num_classes = 16, init_weights = False)
-	#net = VGG16(num_classes = 16, init_weights = False)
-	#net = net.float()
-	#summary(net, (3, 224, 224))
-
-	#criterion = nn.L1Loss()
-	regression_loss = nn.MSELoss()
-	#softmax_loss = nn.sof
-	BCE_loss = nn.BCELoss()
-	CE_loss = nn.CrossEntropyLoss()
+	criterion = nn.CrossEntropyLoss()
 	optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.8)
 
 	count = 0
-	epochs = 1
-	times = 10000
+	epochs = 10
+	times = 100000
+
+	men_losses = []
+	
+	for epoch in range(epochs):  # loop over the dataset multiple times
+		running_loss = 0.0
+		start_time = time.time()
+		for i, data in enumerate(trainloader):
+			start_time = time.time()
+			count+=1
+
+			inputs, labels = data
+			inputs, labels = inputs.to(device), labels.to(device)
+
+			optimizer.zero_grad()
+			outputs = net(inputs)
+			loss = criterion(outputs, labels)
+			loss.backward()
+			optimizer.step()
+
+			running_loss += loss.item()
+			#print('running_loss')
+			if count % 1000 == 999:	# print every 2000 mini-batches
+				print('[%d, %d] loss: %.3f' %
+					  (epoch + 1, count + 1, running_loss / 1000))
+				men_losses.append(running_loss / 1000)
+				running_loss = 0.0
+
+			if count%5000 == 0:
+				torch.save(net.state_dict(), 'fas_resnet_men_{}.pt'.format(count))
+				print('men_{}saved'.format(count))
+
+			if count %100 == 0:
+				print(count, time.time() - start_time)
+
+			if count == times:
+				break
+		
+		if count == times:
+			break
+		
+	
+	#================================================================== below are for women
+
+	train_data_dir = '/home/zw119/floordog/dataset_resnet/train/women'
+	train_dataset = datasets.ImageFolder(train_data_dir,
+											  data_transforms)
+
+	trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=4,
+												 shuffle=True, num_workers=4)
+
+	dataset_sizes = len(train_dataset)
+
+	classes = train_dataset.classes
+	print(classes)
+
+	net = resnet50(pretrained = True, num_classes = len(classes))
+
+	net.to(device)
+
+	criterion = nn.CrossEntropyLoss()
+	optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.8)
+
+	count = 0
+	epochs = 10
+	times = 100000
+
+	women_losses = []
 
 	for epoch in range(epochs):  # loop over the dataset multiple times
 		running_loss = 0.0
 		start_time = time.time()
 		for i, data in enumerate(trainloader):
-			#print('sample', time.time() - start_time)
 			start_time = time.time()
 			count+=1
-			print(count)
 
-			inputs, landmarks, visibility, attributes, category = data['image'], data['landmarks'], data['visibility'], data['attributes'], data['category']
-			inputs = inputs.float()
-			landmarks = landmarks.float()
-			visibility = visibility.float()
-			attributes = attributes.type(torch.FloatTensor)
-			category = category.type(torch.LongTensor)
-
-			#print('input',time.time() - start_time)
-			start_time = time.time()
+			inputs, labels = data
+			inputs, labels = inputs.to(device), labels.to(device)
 
 			optimizer.zero_grad()
-			landmarks_out, feature, category_attributes = net(inputs)
-			category_out = category_attributes[:, 0:50]
-			attributes_out = category_attributes[:, 50:]
-			#category_out = category_out.type(torch.LongTensor)
-			#attributes_out = attributes_out.type(torch.LongTensor)
-
-			print('forward',time.time() - start_time)
-			start_time = time.time()
-			'''
-			for i in range(batch_size):
-				for j in range(8):								# number of total landmarks
-					if visibility[i][j] == 0:
-						landmarks[i][j][0] = outputs[i][2*j]
-						landmarks[i][j][1] = outputs[i][2*j+1]
-			'''
-
-			labels = torch.rand(batch_size, 16, requires_grad = False)
-			for i in range(batch_size):
-				for j in range(8):
-					labels[i][2*j] = landmarks[i][j][0]
-					labels[i][2*j+1] = landmarks[i][j][1]
-			#print('label', time.time() - start_time)
-			start_time = time.time()
-
-			landmarks_loss = regression_loss(landmarks_out, labels)
-			category_loss = CE_loss(category_out, torch.max(category,1)[1])
-			attributes_loss = BCE_loss(attributes_out, attributes)
-
-			if count%2 == 0:
-				local_wght = 0.2
-				global_wght = 0.8
-			else:
-				local_wght = 0.8
-				global_wght = 0.2
-
-			loss = landmarks_loss*local_wght + (category_loss+attributes_loss)*global_wght
-
-
-			#print('loss',time.time() - start_time)
-			start_time = time.time()
-
+			outputs = net(inputs)
+			loss = criterion(outputs, labels)
 			loss.backward()
-
-			print('back',time.time() - start_time)
-			start_time = time.time()
-
 			optimizer.step()
-
-			#print('step',time.time() - start_time)
-			start_time = time.time()
 
 			running_loss += loss.item()
 			#print('running_loss')
-			if count % times == times-1:	# print every 2000 mini-batches
+			if count % 1000 == 999:	# print every 2000 mini-batches
 				print('[%d, %d] loss: %.3f' %
-					  (epoch + 1, count + 1, running_loss / 200))
+					  (epoch + 1, count + 1, running_loss / 1000))
+				women_losses.append(running_loss/1000)
 				running_loss = 0.0
 
-			if count%100 == 0:
-				torch.save(net.state_dict(), 'fasNet_1_{}.pt'.format(count))
-				print('{}saved'.format(count))
+			if count%5000 == 0:
+				torch.save(net.state_dict(), 'fas_resnet_women_{}.pt'.format(count))
+				print('men_{}saved'.format(count))
+
+			if count %100 == 0:
+				print(count, time.time() - start_time)
 
 			if count == times:
 				break
 		if count == times:
 			break
+
+	print('men_losses', men_losses)
+	print('women_losses', women_losses)
