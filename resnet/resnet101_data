@@ -52,6 +52,16 @@ suits-blazers: 7345
 jackets-coats: 35121
 total: 92583
 
+Men test_data:
+shorts: 664
+sweaters: 605
+pants: 164
+jeans: 261
+shirts: 31
+suits-blazers: 253
+jackets-coats: 1211
+3189
+
 Women train_data:
 shorts: 19219
 sweaters: 17564
