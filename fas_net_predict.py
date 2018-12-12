@@ -311,7 +311,7 @@ class fasNet(nn.Module):
 		print('4', time.time() - tm)
 		tm = time.time()
 
-		'''
+		
 		local_feature = local_feature.view(local_feature.size(0), -1)
 		print('5', time.time() - tm)
 		tm = time.time()
@@ -331,7 +331,7 @@ class fasNet(nn.Module):
 		#print("local_feature_fc", local_feature_fc.size())
 		print('5', time.time() - tm)
 		tm = time.time()
-		
+		'''
 
 		global_feature = feature.view(feature.size(0), -1)
 		#print("global_feature_view", global_feature.size())

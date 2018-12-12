@@ -190,7 +190,7 @@ def resnet34(pretrained=False, **kwargs):
     return model
 
 
-def resnet50(pretrained=True, **kwargs):
+def resnet50(pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
@@ -206,7 +206,7 @@ def resnet50(pretrained=True, **kwargs):
     return model
 
 
-def resnet101(pretrained=True, **kwargs):
+def resnet101(pretrained=False, **kwargs):
     """Constructs a ResNet-101 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
@@ -240,7 +240,7 @@ if __name__ == '__main__':
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
-    test_data_dir = '/home/zw119/floordog/dataset_resnet/test/men'
+    test_data_dir = '/home/zw119/floordog/dataset_resnet/test/women'
     test_dataset = datasets.ImageFolder(test_data_dir,
                                               data_transforms)
 
@@ -254,7 +254,7 @@ if __name__ == '__main__':
 
 
     net = resnet101(num_classes = len(classes))
-    net.load_state_dict(torch.load('fas_resnet101_men_10000.pt'))
+    net.load_state_dict(torch.load('fas_resnet101_women_100000.pt'))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
 
@@ -292,6 +292,7 @@ if __name__ == '__main__':
     
     class_correct = list(0. for i in range(10))
     class_total = list(0. for i in range(10))
+    conf_matrix = np.zeros((len(classes), len(classes)))
     with torch.no_grad():
         for data in testloader:
             images, labels = data
@@ -299,16 +300,23 @@ if __name__ == '__main__':
             outputs = net(images)
             _, predicted = torch.max(outputs, 1)
             c = (predicted == labels).squeeze()
-            #print(predicted, labels, c)
+
             for i in range(labels.size(0)):
                 label = labels[i]
+                pred_res = predicted[i]
+                conf_matrix[label][pred_res] += 1
                 try:
                     class_correct[label] += c[i].item()
                 except:
                     class_correct[label] += int(c)
                 class_total[label] += 1
 
+    for label in range(len(classes)):
+        conf_matrix[label] = conf_matrix[label]/class_total[label]*100
 
     for i in range(len(classes)):
         print('Accuracy of %5s : %2d %%' % (
             classes[i], 100 * class_correct[i] / class_total[i]))
+
+    print('confusion matrix')
+    print(conf_matrix)

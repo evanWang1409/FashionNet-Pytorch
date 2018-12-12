@@ -12,11 +12,12 @@ import torch.optim as optim
 from matplotlib import pyplot as plt
 import numpy as np
 
-import cv2
+import cv2, time
 
 from PIL import Image
 
-classes = ['jackets-coats', 'jeans', 'pants', 'shirts', 'shorts', 'suits-blazers', 'sweaters']
+men_classes = ['jackets-coats', 'jeans', 'pants', 'shirts', 'shorts', 'suits-blazers', 'sweaters']
+women_classes = ['dresses', 'jackets-coats', 'jeans', 'jumpsuits', 'pants', 'shorts', 'skirts', 'sweaters', 'tops']
 
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize
@@ -163,9 +164,14 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         x = self.layer1(x)
+        #self.show_feature_map(x)
         x = self.layer2(x)
+        #self.show_feature_map(x)
         x = self.layer3(x)
+        #self.show_feature_map(x)
         x = self.layer4(x)
+        #print(x.size())   # 2048*8*8
+        #self.show_feature_map(x)
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
@@ -173,28 +179,14 @@ class ResNet(nn.Module):
 
         return x
 
-
-def resnet18(pretrained=False, **kwargs):
-    """Constructs a ResNet-18 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
-    return model
-
-
-def resnet34(pretrained=False, **kwargs):
-    """Constructs a ResNet-34 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
-    return model
-
+    def show_feature_map(self, feature):
+        current_feature = feature[0]
+        current_feature_map = feature[0, 0, :, :]
+        for j in range(1, feature[0].size(0)):
+            current_feature_map = torch.add(current_feature_map, feature[0,j,:,:])
+        current_feature_map_np = current_feature_map.detach().numpy()
+        plt.imshow(current_feature_map_np)
+        plt.show()
 
 def resnet50(pretrained=True, **kwargs):
     """Constructs a ResNet-50 model.
@@ -211,7 +203,6 @@ def resnet50(pretrained=True, **kwargs):
         model.load_state_dict(model_state)
     return model
 
-
 def resnet101(pretrained=False, **kwargs):
     """Constructs a ResNet-101 model.
     Args:
@@ -219,21 +210,16 @@ def resnet101(pretrained=False, **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
+        print("=> using pre-trained model '{}'".format('resnet_101'))
+        pretrained_state = model_zoo.load_url(model_urls['resnet101'])
+        model_state = model.state_dict()
+        pretrained_state = { k:v for k,v in pretrained_state.items() if k in model_state and v.size() == model_state[k].size() }
+        model_state.update(pretrained_state)
+        model.load_state_dict(model_state)
     return model
 
-
-def resnet152(pretrained=False, **kwargs):
-    """Constructs a ResNet-152 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
-    return model
-
-if __name__ == '__main__':
+def men_pred(clothes_path):
+    tm = time.time()
     data_transforms = transforms.Compose(
     [transforms.Resize(256),
      transforms.CenterCrop(227),
@@ -241,20 +227,53 @@ if __name__ == '__main__':
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
-    test_img_path = '/users/evnw/documents/github/fashionnet-pytorch/resnet/test.jpg'
+    test_img_path = clothes_path
     im = Image.open(test_img_path)
     im_input = data_transforms(im).float()
     rand_tensor = torch.rand(3, 227, 227)
+    #imshow(im_input); plt.show()
     inputs = torch.stack([im_input, rand_tensor.float(), rand_tensor.float(), rand_tensor.float()])
-    print(inputs.size())
 
-    net = resnet50(num_classes = 7)
-    net.load_state_dict(torch.load('fasNet_men_10000.pt',  map_location='cpu'))
+    #net = resnet50(num_classes = 7)
+    net = resnet101(num_classes = len(men_classes))
+    net.load_state_dict(torch.load('101_train/fas_resnet101_men_100000.pt',  map_location='cpu'))
 
     outputs = net(inputs)
 
-    print(outputs)
+    _, predicted = torch.max(outputs.data, 1)
+
+    #print(men_classes[predicted[0]])
+    #print(time.time()-tm)
+    return men_classes[predicted[0]]
+
+def women_pred(clothes_path):
+    tm = time.time()
+    data_transforms = transforms.Compose(
+    [transforms.Resize(256),
+     transforms.CenterCrop(227),
+     transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+
+    test_img_path = clothes_path
+    im = Image.open(test_img_path)
+    im_input = data_transforms(im).float()
+    #imshow(im_input); plt.show()
+    rand_tensor = torch.rand(3, 227, 227)
+    inputs = torch.stack([im_input, rand_tensor.float(), rand_tensor.float(), rand_tensor.float()])
+
+    #net = resnet50(num_classes = 7)
+    net = resnet101(num_classes = len(women_classes))
+    net.load_state_dict(torch.load('101_train/fas_resnet101_women_100000.pt',  map_location='cpu'))
+
+    outputs = net(inputs)
 
     _, predicted = torch.max(outputs.data, 1)
 
-    print(classes[predicted[0]])
+    #print(women_classes[predicted[0]])
+    #print(time.time()-tm)
+    return women_classes[predicted[0]]
+
+
+if __name__ == '__main__':
+    clothes_path = '/Users/evnw/documents/github/fashionnet-pytorch/resnet/test.jpg'
